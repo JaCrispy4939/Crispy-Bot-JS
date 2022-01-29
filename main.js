@@ -1,11 +1,23 @@
 //Made by Ja'Crispy
 //Please dont steal code and call it yours
+
 const Discord = require('discord.js')
-const client = new Discord.Client()
+const ytdl = require('ytdl-core');
+//const Wallet = require('D:/Coding/Javascript/crispybot/wallet.js');
+const queue = new Map();
+//const wallet = require('D:/Coding/Javascript/crispybot/wallet.js');
+const { Client, Intents } = require('discord.js');
+
+const client = new Discord.Client({ intents: ["GUILDS", "GUILD_MESSAGES"] });
+
 
 client.on('ready', () => {
-    // Set bot status to: "Playing with JavaScript"
-    client.user.setActivity(".help")
+  console.log("Ready");
+})
+
+client.on('ready', () => {
+
+    client.user.setActivity("!help")
 })
 
 client.on('message', (receivedMessage) => {
@@ -13,7 +25,7 @@ client.on('message', (receivedMessage) => {
         return
     }
     
-    if (receivedMessage.content.startsWith(".")) {
+    if (receivedMessage.content.startsWith("!")) {
         processCommand(receivedMessage)
     }
 })
@@ -43,14 +55,27 @@ function processCommand(receivedMessage) {
         userInfoCommand(receivedMessage)
     } else if (primaryCommand == "serverinfo") {
         serverInfoCommand(receivedMessage)
-    }
-    else {
-        receivedMessage.channel.send("I don't understand the command, try .help")
+    } else if (primaryCommand == "uptime") {
+        uptimeCommand(receivedMessage)
+    } else if (primaryCommand == "timer") {
+        timerCommand(receivedMessage)
+    } else if (primaryCommand == "join") {
+        joinCommand(receivedMessage)
+    } else if (primaryCommand == "leave") {
+        leaveCommand(receivedMessage)
+    } else if (primaryCommand == "play") {
+        playCommand(receivedMessage)
+    } else if (primaryCommand == "upcoming") {
+        upcomingCommand(receivedMessage)
+    } else if (primaryCommand == "bal") {
+        balanceCommand(receivedMessage)
+    } else if (primaryCommand == "d bump") {
+        bumpignore(receivedMessage)
     }
 }
 
 function helpCommand(receivedMessage) {
-    receivedMessage.channel.send("**USEFUL**\n1. Add\n2. Subtract\n3. Multiply\n\n\n**MISC**\n1. Invite\n")
+    receivedMessage.channel.send("**USEFUL**\n1. Add\n2. Subtract\n3. Multiply\n\n\n**MISC**\n1. Invite\n2. Uptime\n3. Upcoming")
     }
 
 function multiplyCommand(arguments, receivedMessage) {
@@ -107,8 +132,9 @@ function kickCommand(arguments, receivedMessage) {
       }
 
 function userInfoCommand(receivedMessage) {
-    let botornot = receivedMessage["clientuser"]["bot"]
-    receivedMessage.channel.send(botornot)
+
+    let status = Discord.visibility;
+    receivedMessage.channel.send(status);
     }
 
 
@@ -118,10 +144,100 @@ function serverInfoCommand(receivedMessage) {
     let servercreationdate = receivedMessage["guild"]["createdAt"]
     let serverowner = client.guilds.cache.find(guild => guild.id === receivedMessage["guild"]["id"]).members.cache.filter(member => member.id === receivedMessage["guild"]["owner"])
     let joindate = receivedMessage["guild"]["joinedAt"]
-    let membercount = receivedMessage["guild"]["MemberCount"]
+    let membercount = client.guilds.cache.find(guild => guild.id === receivedMessage["guild"]["id"]).members.cache.filter(member => !member.user.client).size;
     receivedMessage.channel.send("Server Owner: " + serverowner +  "\nServer creation date: " + servercreationdate + "\nDate Bot Joined: " + joindate + "\nMember Count: " + membercount)
 //  let creation = receivedMessage.Guild.createdTimestamp
     //receivedMessage.channel.send("Server created: " + creation)
+
+}
+function uptimeCommand(receivedMessage) {
+    var milliseconds = parseInt((client.uptime % 1000) / 100),
+      seconds = parseInt((client.uptime / 1000) % 60),
+      minutes = parseInt((client.uptime / (1000 * 60)) % 60),
+      hours = parseInt((client.uptime / (1000 * 60 * 60)) % 24);
+      days = parseInt((client.uptime / (1000 * 60 * 60 * 24)) % 60);
+
+      days = (days < 10) ? "0" + days : days;
+      hours = (hours < 10) ? "0" + hours : hours;
+      minutes = (minutes < 10) ? "0" + minutes : minutes;
+      seconds = (seconds < 10) ? "0" + seconds : seconds;
+
+      receivedMessage.channel.send("Bot has been online for : ** " + days + " **days, **" + hours + " **hours, **" + minutes + "** minutes and **" + seconds + "." + milliseconds + "** seconds");
+}
+async function joinCommand(receivedMessage, serverQueue) {
+    const args = receivedMessage.content.split(" ");
+  
+    const voiceChannel = receivedMessage.member.voice.channel;
+    if (!voiceChannel)
+      return receivedMessage.channel.send(
+        "You need to be in a voice channel to play music"
+      );
+    const permissions = voiceChannel.permissionsFor(receivedMessage.client.user);
+    if (!permissions.has("CONNECT") || !permissions.has("SPEAK")) {
+      return receivedMessage.channel.send(
+        "I need the permissions to join and speak in your voice channel!"
+      );
+    
+    } else {
+        var connection = await voiceChannel.join();
+        client.connection
+        receivedMessage.channel.send("I joined the voice channel")
+    }
+}
+async function songinfo(receivedMessage) {
+const songInfo = await ytdl.getInfo(args[1]);
+  const song = {
+    title: songInfo.title,
+    url: songInfo.video_url
+  }
+}
+
+
+async function leaveCommand(receivedMessage) {
+    //const voiceChannel = receivedMessage.member.voice.channel;
+    //var connection = await voiceChannel.leave();
+    //client.connection
+   // receivedMessage.channel.send("I left the voice channel")
+}
+async function playCommand(guild, song, receivedMessage) {
+    const serverQueue = queue.get(guild.id);
+    
+    if (!song) {
+        serverQueue.voiceChannel.leave();
+          queue.delete(guild.id);
+          return;
+        }
+    const dispatcher = serverQueue.connection
+      .play(ytdl(song.url))
+      .on("finish", () => {
+        serverQueue.songs.shift();
+        play(guild, serverQueue.songs[0]);
+      })
+      .on("error", error => console.error(error));
+    dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
+    serverQueue.textChannel.send(`Start playing: **${song.title}**`);
+    }
+function upcomingCommand(receivedMessage) {
+    receivedMessage.channel.send("**WORKING ON**\n1. Music\n2. Economy Game");
+}
+
+//const Wallet = require("../../Classes/Wallet")
+//const Wallet = ("D:\Coding\Javascript\crispybot\wallet.js");
+async function balanceCommand(receivedMessage) {
+        const Wallet = Wallet
+        const user = receivedMessage.args;
+        const bal = await user.Wallet.balance();
+
+        //const embed = client.embed
+        //embed.setTitle(user.tag)
+        //embed.nitroColor()
+        //embed.setDescription("**" + receivedMessage.guild.formatBal(bal) + "**");
+        receivedMessage.channel.send(receivedMessage.guild.formatBal(bal));
+            }
+
+function bumpignore(received) {
+    return
+}
 
 }
 client.login("//yourtokenhere")
